@@ -1,106 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-
-type IconName = "grid" | "orders" | "chart" | "settings" | "search" | "bell" | "plus" | "minus" | "trash" | "chevron" | "close" | "card" | "bag" | "user" | "lock" | "eye"
-
-function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
-  const paths: Record<IconName, React.ReactNode> = {
-    grid: (
-      <>
-        <rect x="3" y="3" width="7" height="7" rx="2" />
-        <rect x="14" y="3" width="7" height="7" rx="2" />
-        <rect x="3" y="14" width="7" height="7" rx="2" />
-        <rect x="14" y="14" width="7" height="7" rx="2" />
-      </>
-    ),
-    orders: (
-      <>
-        <path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z" />
-        <path d="M9 8h6M9 12h6" />
-      </>
-    ),
-    chart: (
-      <>
-        <path d="M4 19V9M10 19V5M16 19v-7M22 19H2" />
-      </>
-    ),
-    settings: (
-      <>
-        <circle cx="12" cy="12" r="3" />
-        <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" />
-      </>
-    ),
-    search: (
-      <>
-        <circle cx="11" cy="11" r="7" />
-        <path d="m20 20-4-4" />
-      </>
-    ),
-    bell: (
-      <>
-        <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 7h18s-3 0-3-7" />
-        <path d="M10 19h4" />
-      </>
-    ),
-    plus: <path d="M12 5v14M5 12h14" />,
-    minus: <path d="M5 12h14" />,
-    trash: (
-      <>
-        <path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14" />
-      </>
-    ),
-    chevron: <path d="m9 18 6-6-6-6" />,
-    close: <path d="m6 6 12 12M18 6 6 18" />,
-    card: (
-      <>
-        <rect x="3" y="5" width="18" height="14" rx="3" />
-        <path d="M3 10h18M7 15h3" />
-      </>
-    ),
-    bag: (
-      <>
-        <path d="M6 8h12l1 13H5L6 8Z" />
-        <path d="M9 9V6a3 3 0 0 1 6 0v3" />
-      </>
-    ),
-    user: (
-      <>
-        <circle cx="12" cy="8" r="4" />
-        <path d="M4 21a8 8 0 0 1 16 0" />
-      </>
-    ),
-    lock: (
-      <>
-        <rect x="4" y="10" width="16" height="11" rx="3" />
-        <path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3" />
-      </>
-    ),
-    eye: (
-      <>
-        <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
-        <circle cx="12" cy="12" r="2.5" />
-      </>
-    ),
-  }
-
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      height={size}
-      viewBox="0 0 24 24"
-      width={size}
-    >
-      <g
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.8"
-      >
-        {paths[name]}
-      </g>
-    </svg>
-  )
-}
+import "./features.css"
+import { AuthView } from "./AuthView"
+import { Icon, type IconName } from "./Icon"
+import { TeamView } from "./TeamView"
+import { initials, rupiah } from "./lib/format"
+import {
+  currentAccount,
+  ensureSeed,
+  logout as logoutAccount,
+  updateProfile,
+  useStoreVersion,
+  type Account,
+  type Role,
+} from "./lib/store"
 
 const photos = {
   table:
@@ -223,12 +135,21 @@ const categories = [
   "Pendamping",
   "Minuman",
 ]
-const rupiah = new Intl.NumberFormat("id-ID", {
-  style: "currency",
-  currency: "IDR",
-  maximumFractionDigits: 0,
-})
-type View = "kasir" | "pesanan" | "laporan" | "pengaturan" | "akun"
+type View = "tim" | "kasir" | "pesanan" | "laporan" | "pengaturan" | "akun"
+
+/* Which screens each role may open. The first entry is the landing screen. */
+const VIEWS_BY_ROLE: Record<Role, View[]> = {
+  manager: ["tim", "pesanan", "laporan", "pengaturan", "akun"],
+  cashier: ["kasir", "pesanan", "akun"],
+}
+
+const NAV_ITEMS: { view: View; label: string; icon: IconName; short: string }[] = [
+  { view: "tim", label: "Tim kasir", icon: "users", short: "Tim" },
+  { view: "kasir", label: "Kasir", icon: "grid", short: "Kasir" },
+  { view: "pesanan", label: "Pesanan", icon: "orders", short: "Pesanan" },
+  { view: "laporan", label: "Dasbor", icon: "chart", short: "Dasbor" },
+  { view: "pengaturan", label: "Kelola menu", icon: "settings", short: "Menu" },
+]
 
 type Cart = Record<number, number>
 
@@ -494,12 +415,14 @@ function AccountSettingsView({
   employeeName,
   shiftName,
   shiftActive,
+  isManager,
   onSave,
   onToggleShift,
 }: {
   employeeName: string
   shiftName: string
   shiftActive: boolean
+  isManager: boolean
   onSave: (name: string, shift: string) => void
   onToggleShift: () => void
 }) {
@@ -521,17 +444,26 @@ function AccountSettingsView({
         <div>
           <span className="eyebrow">Profil pekerja</span>
           <h2>Pengaturan akun</h2>
-          <p>Kelola identitas kasir dan status shift yang sedang berjalan.</p>
+          <p>
+            {isManager
+              ? "Kelola identitas dan jabatan Anda."
+              : "Kelola identitas kasir dan status shift yang sedang berjalan."}
+          </p>
         </div>
-        <span
-          className={`shift-status ${shiftActive ? "shift-status-active" : ""}`}
-        >
-          <i></i>
-          {shiftActive ? "Shift aktif" : "Shift nonaktif"}
-        </span>
+        {!isManager && (
+          <span
+            className={`shift-status ${shiftActive ? "shift-status-active" : ""}`}
+          >
+            <i></i>
+            {shiftActive ? "Shift aktif" : "Shift nonaktif"}
+          </span>
+        )}
       </div>
 
-      <div className="account-layout">
+      <div
+        className="account-layout"
+        style={isManager ? { gridTemplateColumns: "minmax(0, 640px)" } : undefined}
+      >
         <form className="account-card" onSubmit={submitAccount}>
           <div className="account-card-heading">
             <div className="account-avatar">
@@ -570,6 +502,7 @@ function AccountSettingsView({
           </button>
         </form>
 
+        {!isManager && (
         <aside className="shift-card">
           <span className="shift-card-icon">
             <Icon name="orders" size={21} />
@@ -593,169 +526,17 @@ function AccountSettingsView({
             Status shift pada versi ini disimpan selama aplikasi masih terbuka.
           </small>
         </aside>
+        )}
       </div>
     </section>
   )
 }
 
-function LoginView({ onLogin }: { onLogin: () => void }) {
-  const [email, setEmail] = useState("kasir@nextgen.id")
-  const [password, setPassword] = useState("")
-  const [passwordVisible, setPasswordVisible] = useState(false)
-  const [remember, setRemember] = useState(true)
-  const [error, setError] = useState("")
-  const [loading, setLoading] = useState(false)
-
-  function submitLogin(event: React.FormEvent) {
-    event.preventDefault()
-    setError("")
-    if (!email.includes("@")) {
-      setError("Masukkan alamat email yang valid.")
-      return
-    }
-    if (password.length < 6) {
-      setError("Kata sandi minimal 6 karakter.")
-      return
-    }
-    setLoading(true)
-    window.setTimeout(onLogin, 650)
-  }
-
-  return (
-    <main className="login-page">
-      <section className="login-brand-panel">
-        <div className="login-brand">
-          <div className="brand-mark">
-            <span>N</span>
-          </div>
-          <strong>NEXT POS</strong>
-        </div>
-        <div className="login-brand-copy">
-          <span className="login-kicker">Point of sale generasi baru</span>
-          <h1>Kelola setiap pesanan dalam satu orbit.</h1>
-          <p>
-            Penjualan, menu, dan aktivitas shift tersinkron dalam ruang kerja
-            yang cepat dan mudah digunakan.
-          </p>
-        </div>
-        <div className="login-orbit" aria-hidden="true">
-          <span className="orbit-core">N</span>
-          <i></i>
-          <i></i>
-          <i></i>
-        </div>
-        <div className="login-brand-footer">
-          <span>
-            <i></i> Sistem operasional
-          </span>
-          <strong>Online</strong>
-        </div>
-      </section>
-
-      <section className="login-form-panel">
-        <div className="login-mobile-brand">
-          <div className="brand-mark">
-            <span>N</span>
-          </div>
-          <strong>NEXT POS</strong>
-        </div>
-        <form className="login-form" onSubmit={submitLogin}>
-          <div className="login-heading">
-            <span className="eyebrow">Akses pekerja</span>
-            <h2>Selamat datang kembali</h2>
-            <p>Masuk menggunakan akun pekerja yang telah terdaftar.</p>
-          </div>
-
-          <label className="login-field">
-            <span>Email pekerja</span>
-            <div>
-              <Icon name="user" size={18} />
-              <input
-                autoComplete="email"
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="nama@restoran.id"
-                type="email"
-                value={email}
-              />
-            </div>
-          </label>
-
-          <label className="login-field">
-            <span>Kata sandi</span>
-            <div>
-              <Icon name="lock" size={18} />
-              <input
-                autoComplete="current-password"
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="Masukkan kata sandi"
-                type={passwordVisible ? "text" : "password"}
-                value={password}
-              />
-              <button
-                aria-label={
-                  passwordVisible
-                    ? "Sembunyikan kata sandi"
-                    : "Tampilkan kata sandi"
-                }
-                className="password-toggle"
-                onClick={() => setPasswordVisible((current) => !current)}
-                type="button"
-              >
-                <Icon name="eye" size={17} />
-              </button>
-            </div>
-          </label>
-
-          <div className="login-options">
-            <label>
-              <input
-                checked={remember}
-                onChange={(event) => setRemember(event.target.checked)}
-                type="checkbox"
-              />
-              <span>Ingat perangkat ini</span>
-            </label>
-            <button
-              onClick={() =>
-                setError("Hubungi admin untuk mengatur ulang kata sandi.")
-              }
-              type="button"
-            >
-              Lupa kata sandi?
-            </button>
-          </div>
-
-          {error && (
-            <div className="login-error" role="alert">
-              {error}
-            </div>
-          )}
-
-          <button className="login-submit" disabled={loading} type="submit">
-            <span>{loading ? "Memverifikasi..." : "Masuk ke NEXT"}</span>
-            {!loading && <Icon name="chevron" size={18} />}
-          </button>
-
-          <div className="demo-account">
-            <span>Akun demo</span>
-            <p>
-              Email <strong>kasir@nextgen.id</strong> · gunakan kata sandi apa pun
-              minimal 6 karakter.
-            </p>
-          </div>
-        </form>
-        <p className="login-legal">
-          Dengan masuk, Anda menyetujui kebijakan keamanan tempat kerja.
-        </p>
-      </section>
-    </main>
-  )
-}
-
 export default function App() {
-  const [authenticated, setAuthenticated] = useState(false)
+  const [ready, setReady] = useState(false)
+  const [account, setAccount] = useState<Account | null>(null)
   const [category, setCategory] = useState("Semua menu")
-  const [view, setView] = useState<View>("kasir")
+  const [requestedView, setView] = useState<View>("kasir")
   const [products, setProducts] = useState<Product[]>(initialProducts)
   const [query, setQuery] = useState("")
   const [cart, setCart] = useState<Cart>({ 1: 1, 6: 2 })
@@ -770,17 +551,52 @@ export default function App() {
   const [profileOpen, setProfileOpen] = useState(false)
   const [unreadNotifications, setUnreadNotifications] = useState(2)
   const [message, setMessage] = useState("")
-  const [employeeName, setEmployeeName] = useState("Andi Maulana")
-  const [shiftName, setShiftName] = useState("Kasir · Shift malam")
   const [shiftActive, setShiftActive] = useState(true)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  // re-render when accounts / shifts change (also from other browser tabs)
+  const storeVersion = useStoreVersion()
 
-  const employeeInitials = employeeName
-    .split(" ")
-    .map((word) => word[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase()
+  const employeeName = account?.name ?? ""
+  const shiftName = account?.title ?? ""
+  const employeeInitials = initials(employeeName)
+  const role: Role = account?.role ?? "cashier"
+  const allowedViews = VIEWS_BY_ROLE[role]
+  // a view the role may not open falls back to its landing screen
+  const view: View = allowedViews.includes(requestedView)
+    ? requestedView
+    : allowedViews[0]
+
+  useEffect(() => {
+    let cancelled = false
+    ensureSeed().then(() => {
+      if (cancelled) return
+      setAccount(currentAccount())
+      setReady(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // if the signed-in account is removed or deactivated (e.g. from another tab), sign out
+  useEffect(() => {
+    if (ready && account && !currentAccount()) setAccount(null)
+  }, [ready, account, storeVersion])
+
+  function handleAuthenticated(next: Account) {
+    setAccount(next)
+    setView(VIEWS_BY_ROLE[next.role][0])
+    setCart({})
+    setPaid(false)
+  }
+
+  function handleLogout() {
+    logoutAccount()
+    setProfileOpen(false)
+    setNotificationsOpen(false)
+    setMessage("")
+    setAccount(null)
+  }
 
   useEffect(() => {
     function focusSearch(event: KeyboardEvent) {
@@ -826,9 +642,8 @@ export default function App() {
   )
   const tax = subtotal * 0.11
 
-  if (!authenticated) {
-    return <LoginView onLogin={() => setAuthenticated(true)} />
-  }
+  if (!ready) return null
+  if (!account) return <AuthView onAuthenticated={handleAuthenticated} />
 
   function updateCart(id: number, change: number) {
     setPaid(false)
@@ -1033,37 +848,33 @@ export default function App() {
           <span>N</span>
         </div>
         <div className="nav-group">
-          <button
-            aria-label="Kasir"
-            className={`nav-button ${view === "kasir" ? "active" : ""}`}
-            onClick={() => setView("kasir")}
-          >
-            <Icon name="grid" />
-          </button>
-          <button
-            aria-label="Pesanan"
-            className={`nav-button ${view === "pesanan" ? "active" : ""}`}
-            onClick={() => setView("pesanan")}
-          >
-            <Icon name="orders" />
-          </button>
-          <button
-            aria-label="Dasbor"
-            className={`nav-button ${view === "laporan" ? "active" : ""}`}
-            onClick={() => setView("laporan")}
-          >
-            <Icon name="chart" />
-          </button>
+          {NAV_ITEMS.filter(
+            (item) => item.view !== "pengaturan" && allowedViews.includes(item.view),
+          ).map((item) => (
+            <button
+              aria-label={item.label}
+              className={`nav-button ${view === item.view ? "active" : ""}`}
+              key={item.view}
+              onClick={() => setView(item.view)}
+              title={item.label}
+            >
+              <Icon name={item.icon} />
+            </button>
+          ))}
         </div>
-        <button
-          aria-label="Kelola menu"
-          className={`nav-button nav-settings ${
-            view === "pengaturan" ? "active" : ""
-          }`}
-          onClick={() => setView("pengaturan")}
-        >
-          <Icon name="settings" />
-        </button>
+        <div className="nav-spacer" />
+        {allowedViews.includes("pengaturan") && (
+          <button
+            aria-label="Kelola menu"
+            className={`nav-button nav-settings ${
+              view === "pengaturan" ? "active" : ""
+            }`}
+            onClick={() => setView("pengaturan")}
+            title="Kelola menu"
+          >
+            <Icon name="settings" />
+          </button>
+        )}
         <div className="profile-wrap">
           <button
             aria-expanded={profileOpen}
@@ -1072,7 +883,7 @@ export default function App() {
             onClick={() => setProfileOpen((current) => !current)}
           >
             {employeeInitials}
-            {shiftActive && <span></span>}
+            {(role === "manager" || shiftActive) && <span></span>}
           </button>
           {profileOpen && (
             <div className="profile-menu">
@@ -1105,10 +916,7 @@ export default function App() {
               </button>
               <button
                 className="logout-button"
-                onClick={() => {
-                  setProfileOpen(false)
-                  setAuthenticated(false)
-                }}
+                onClick={handleLogout}
               >
                 Keluar
               </button>
@@ -1128,11 +936,19 @@ export default function App() {
             <strong>NEXT</strong>
           </div>
           <div className="greeting">
-            <span className="eyebrow">Selasa, 14 Mei</span>
+            <span className="eyebrow">
+              {new Date().toLocaleDateString("id-ID", {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+              })}
+            </span>
             <h1>
               {view === "kasir"
-                ? "Selamat malam, NextGen Coders."
-                : view === "pesanan"
+                ? `Halo, ${employeeName.split(" ")[0]}.`
+                : view === "tim"
+                  ? "Tim kasir"
+                  : view === "pesanan"
                   ? "Daftar pesanan"
                   : view === "laporan"
                     ? "Ringkasan penjualan"
@@ -1239,10 +1055,7 @@ export default function App() {
                   </button>
                   <button
                     className="logout-button"
-                    onClick={() => {
-                      setProfileOpen(false)
-                      setAuthenticated(false)
-                    }}
+                    onClick={handleLogout}
                   >
                     Keluar
                   </button>
@@ -1251,22 +1064,27 @@ export default function App() {
             </div>
           </div>
         </header>
-        <nav aria-label="Navigasi seluler" className="mobile-view-nav">
-          {([
-            ["kasir", "Kasir", "grid"],
-            ["pesanan", "Pesanan", "orders"],
-            ["laporan", "Dasbor", "chart"],
-            ["pengaturan", "Menu", "settings"],
-          ] as [View, string, IconName][]).map(([itemView, label, icon]) => (
-            <button
-              className={view === itemView ? "active" : ""}
-              key={itemView}
-              onClick={() => setView(itemView)}
-            >
-              <Icon name={icon} size={18} />
-              <span>{label}</span>
-            </button>
-          ))}
+        <nav
+          aria-label="Navigasi seluler"
+          className="mobile-view-nav"
+          style={{
+            gridTemplateColumns: `repeat(${
+              NAV_ITEMS.filter((item) => allowedViews.includes(item.view)).length
+            }, 1fr)`,
+          }}
+        >
+          {NAV_ITEMS.filter((item) => allowedViews.includes(item.view)).map(
+            (item) => (
+              <button
+                className={view === item.view ? "active" : ""}
+                key={item.view}
+                onClick={() => setView(item.view)}
+              >
+                <Icon name={item.icon} size={18} />
+                <span>{item.short}</span>
+              </button>
+            ),
+          )}
         </nav>
 
         {view === "kasir" ? (
@@ -1325,12 +1143,16 @@ export default function App() {
               </div>
             )}
           </section>
+        ) : view === "tim" ? (
+          <TeamView manager={account} onMessage={setMessage} />
         ) : view === "akun" ? (
           <AccountSettingsView
             employeeName={employeeName}
+            isManager={role === "manager"}
             onSave={(name, shift) => {
-              setEmployeeName(name)
-              setShiftName(shift)
+              const result = updateProfile(account.id, { name, title: shift })
+              if (result.ok) setAccount(result.value)
+              else setMessage(result.error)
             }}
             onToggleShift={() => {
               setShiftActive((current) => !current)
@@ -1348,7 +1170,7 @@ export default function App() {
             onAddProduct={(product) =>
               setProducts((current) => [product, ...current])
             }
-            onBack={() => setView("kasir")}
+            onBack={() => setView(VIEWS_BY_ROLE[role][0])}
             onDeleteProduct={deleteProduct}
             onToggleProduct={(id) =>
               setProducts((current) =>
