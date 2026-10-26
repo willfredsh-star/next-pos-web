@@ -1,13 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import "./features.css"
+import "./motion.css"
 import { AuthView } from "./AuthView"
 import { Icon, type IconName } from "./Icon"
 import { TeamView } from "./TeamView"
-import { initials, rupiah } from "./lib/format"
+import { isMuted, playChing, playSound, setMuted, soundForTarget } from "./lib/sound"
+import { formatRelative, formatTime, initials, rupiah } from "./lib/format"
+import { OrdersView, ReportView } from "./SalesViews"
 import {
+  activeShift,
   currentAccount,
+  currentShiftStats,
+  endShift,
   ensureSeed,
+  listCashiers,
+  listShifts,
+  listTransactions,
   logout as logoutAccount,
+  nextOrderNumber,
+  recordTransaction,
+  startShift,
   updateProfile,
   useStoreVersion,
   type Account,
@@ -152,18 +164,32 @@ const NAV_ITEMS: { view: View; label: string; icon: IconName; short: string }[] 
 ]
 
 type Cart = Record<number, number>
+type Discount = { type: "percent" | "amount"; value: number }
+type Notice = {
+  id: string
+  icon: IconName
+  title: string
+  detail: string
+  at: number
+  view: View
+}
+
+const SEARCH_PLACEHOLDER: Partial<Record<View, string>> = {
+  kasir: "Cari menu...",
+  pesanan: "Cari pesanan...",
+  tim: "Cari kasir...",
+  pengaturan: "Cari menu...",
+}
 
 function WorkspaceView({
-  view,
-  onBack,
   products,
+  query,
   onAddProduct,
   onToggleProduct,
   onDeleteProduct,
 }: {
-  view: Exclude<View, "kasir">
-  onBack: () => void
   products: Product[]
+  query: string
   onAddProduct: (product: Product) => void
   onToggleProduct: (id: number) => void
   onDeleteProduct: (id: number) => void
@@ -202,95 +228,6 @@ function WorkspaceView({
     const reader = new FileReader()
     reader.onload = () => setImage(String(reader.result))
     reader.readAsDataURL(file)
-  }
-
-  if (view === "pesanan") {
-    return (
-      <section className="workspace-view">
-        <div className="workspace-header">
-          <div>
-            <span className="eyebrow">Hari ini</span>
-            <h2>Pesanan terbaru</h2>
-            <p>Pantau semua transaksi yang sedang berjalan.</p>
-          </div>
-          <button className="workspace-primary" onClick={onBack}>
-            <Icon name="plus" size={17} /> Pesanan baru
-          </button>
-        </div>
-        <div className="order-list">
-          {[
-            ["#2048", "Meja 04", "Sedang disiapkan", 235000],
-            ["#2047", "Bawa pulang", "Siap diambil", 128000],
-            ["#2046", "Meja 08", "Selesai", 312000],
-            ["#2045", "Meja 02", "Selesai", 174000],
-          ].map(([number, type, status, total]) => (
-            <button className="order-row" key={number}>
-              <span className="order-row-icon">
-                <Icon name="orders" size={19} />
-              </span>
-              <span>
-                <strong>{number}</strong>
-                <small>{type}</small>
-              </span>
-              <span
-                className={`order-status ${
-                  status === "Selesai" ? "complete" : ""
-                }`}
-              >
-                {status}
-              </span>
-              <strong>{rupiah.format(total as number)}</strong>
-              <Icon name="chevron" size={17} />
-            </button>
-          ))}
-        </div>
-      </section>
-    )
-  }
-
-  if (view === "laporan") {
-    return (
-      <section className="workspace-view">
-        <div className="workspace-header">
-          <div>
-            <span className="eyebrow">Dasbor bisnis</span>
-            <h2>Ringkasan penjualan</h2>
-            <p>Diperbarui beberapa detik yang lalu.</p>
-          </div>
-          <button className="workspace-secondary">Unduh laporan</button>
-        </div>
-        <div className="metric-grid">
-          <article>
-            <span>Total penjualan</span>
-            <strong>{rupiah.format(12845000)}</strong>
-            <small>↑ 12,4% dari kemarin</small>
-          </article>
-          <article>
-            <span>Total pesanan</span>
-            <strong>148</strong>
-            <small>↑ 8 pesanan hari ini</small>
-          </article>
-          <article>
-            <span>Rata-rata transaksi</span>
-            <strong>{rupiah.format(86791)}</strong>
-            <small>↑ 4,2% dari kemarin</small>
-          </article>
-        </div>
-        <div className="chart-card">
-          <div>
-            <h3>Penjualan per jam</h3>
-            <span>09.00 — 22.00</span>
-          </div>
-          <div className="bar-chart">
-            {[28, 38, 31, 54, 68, 45, 78, 61, 84, 72, 92, 58].map(
-              (height, index) => (
-                <i key={index} style={{ height: `${height}%` }} />
-              ),
-            )}
-          </div>
-        </div>
-      </section>
-    )
   }
 
   return (
@@ -372,7 +309,13 @@ function WorkspaceView({
         </form>
       )}
       <div className="manage-list">
-        {products.map((product) => (
+        {products
+          .filter((product) =>
+            `${product.name} ${product.category} ${product.description}`
+              .toLowerCase()
+              .includes(query.trim().toLowerCase()),
+          )
+          .map((product) => (
           <article
             className={!product.active ? "menu-disabled" : ""}
             key={product.id}
@@ -539,7 +482,7 @@ export default function App() {
   const [requestedView, setView] = useState<View>("kasir")
   const [products, setProducts] = useState<Product[]>(initialProducts)
   const [query, setQuery] = useState("")
-  const [cart, setCart] = useState<Cart>({ 1: 1, 6: 2 })
+  const [cart, setCart] = useState<Cart>({})
   const [cartOpen, setCartOpen] = useState(false)
   const [paid, setPaid] = useState(false)
   const [orderType, setOrderType] = useState<"Makan di tempat" | "Bawa pulang">(
@@ -549,12 +492,41 @@ export default function App() {
   const [orderTypeOpen, setOrderTypeOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
-  const [unreadNotifications, setUnreadNotifications] = useState(2)
+  const [lastSeen, setLastSeen] = useState(0)
+  const [soundMuted, setSoundMuted] = useState(isMuted)
+  const [discount, setDiscount] = useState<Discount | null>(null)
+  const [discountOpen, setDiscountOpen] = useState(false)
+  const [discountType, setDiscountType] = useState<Discount["type"]>("percent")
+  const [discountValue, setDiscountValue] = useState("")
   const [message, setMessage] = useState("")
-  const [shiftActive, setShiftActive] = useState(true)
+  const [paying, setPaying] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   // re-render when accounts / shifts change (also from other browser tabs)
   const storeVersion = useStoreVersion()
+
+  // The cashier's shift lives in the data layer, so the manager sees it too.
+  // Managers do not work shifts.
+  const shiftRecord =
+    account && account.role === "cashier" ? activeShift(account.id) : null
+  const shiftActive = account?.role === "manager" ? true : !!shiftRecord
+  const orderNumber = useMemo(() => nextOrderNumber(), [storeVersion])
+  const transactions = useMemo(
+    () =>
+      account
+        ? listTransactions(
+            account.role === "cashier" ? { cashierId: account.id } : undefined,
+          )
+        : [],
+    [storeVersion, account],
+  )
+  const names = useMemo(() => {
+    const map: Record<string, string> = {}
+    listCashiers().forEach((cashier) => {
+      map[cashier.id] = cashier.name
+    })
+    if (account) map[account.id] = account.name
+    return map
+  }, [storeVersion, account])
 
   const employeeName = account?.name ?? ""
   const shiftName = account?.title ?? ""
@@ -584,13 +556,23 @@ export default function App() {
   }, [ready, account, storeVersion])
 
   function handleAuthenticated(next: Account) {
+    // signing in as a cashier clocks them in
+    if (next.role === "cashier") startShift(next.id)
     setAccount(next)
     setView(VIEWS_BY_ROLE[next.role][0])
     setCart({})
+    setDiscount(null)
     setPaid(false)
+    setPaying(false)
   }
 
   function handleLogout() {
+    // signing out clocks the cashier out
+    if (account?.role === "cashier") endShift(account.id)
+    setCart({})
+    setDiscount(null)
+    setPaid(false)
+    setPaying(false)
     logoutAccount()
     setProfileOpen(false)
     setNotificationsOpen(false)
@@ -640,7 +622,118 @@ export default function App() {
       ),
     [cart, cartItems],
   )
-  const tax = subtotal * 0.11
+  const discountAmount = discount
+    ? Math.min(
+        subtotal,
+        discount.type === "percent"
+          ? Math.round((subtotal * discount.value) / 100)
+          : discount.value,
+      )
+    : 0
+  const discountLabel = discount
+    ? discount.type === "percent"
+      ? `${String(discount.value).replace(".", ",")}%`
+      : rupiah.format(discount.value)
+    : ""
+  const taxable = subtotal - discountAmount
+  const tax = taxable * 0.11
+  const total = taxable + tax
+
+  // a discount belongs to one order: drop it when the cart is emptied
+  useEffect(() => {
+    if (!itemCount) {
+      setDiscount(null)
+      setDiscountOpen(false)
+    }
+  }, [itemCount])
+
+  // notifications are built from real activity in the last 24 hours
+  const notices = useMemo<Notice[]>(() => {
+    if (!account) return []
+    const since = Date.now() - 86_400_000
+    const list: Notice[] = transactions
+      .filter((tx) => tx.at >= since)
+      .slice(0, 6)
+      .map((tx) => ({
+        id: tx.id,
+        icon: "orders" as IconName,
+        title: `Pesanan #${tx.number} dibayar`,
+        detail: `${rupiah.format(tx.total)}${
+          account.role === "manager" ? ` · ${names[tx.cashierId] ?? "Kasir"}` : ""
+        }`,
+        at: tx.at,
+        view: "pesanan" as View,
+      }))
+    if (account.role === "manager") {
+      listShifts(since)
+        .filter((shift) => shift.startedAt >= since)
+        .slice(0, 6)
+        .forEach((shift) =>
+          list.push({
+            id: `shift-${shift.id}`,
+            icon: "clock",
+            title: `${names[shift.cashierId] ?? "Kasir"} memulai shift`,
+            detail: shift.endedAt
+              ? `Selesai ${formatTime(shift.endedAt)}`
+              : "Sedang bertugas",
+            at: shift.startedAt,
+            view: "tim",
+          }),
+        )
+    }
+    return list.sort((a, b) => b.at - a.at).slice(0, 8)
+  }, [transactions, names, account, storeVersion])
+  const unread = notices.filter((notice) => notice.at > lastSeen).length
+  const seenKey = account ? `nextpos.seen.${account.id}` : ""
+
+  useEffect(() => {
+    if (!seenKey) return
+    try {
+      setLastSeen(Number(localStorage.getItem(seenKey)) || 0)
+    } catch {
+      setLastSeen(0)
+    }
+  }, [seenKey])
+
+  // search belongs to one screen: start fresh when the screen changes
+  useEffect(() => {
+    setQuery("")
+  }, [view])
+
+  // one delegated listener gives every button a soft tap sound
+  useEffect(() => {
+    function onPress(event: PointerEvent) {
+      if (event.button !== 0) return
+      const kind = soundForTarget(event.target as Element | null)
+      if (kind && kind !== "none") playSound(kind)
+    }
+    document.addEventListener("pointerdown", onPress, true)
+    return () => document.removeEventListener("pointerdown", onPress, true)
+  }, [])
+
+  // close menus when clicking elsewhere or pressing Escape
+  useEffect(() => {
+    function closeOutside(event: PointerEvent) {
+      const target = event.target as Element | null
+      const inside = (selector: string) => !!target?.closest(selector)
+      if (!inside(".notification-wrap")) setNotificationsOpen(false)
+      if (!inside(".profile-wrap, .mobile-profile-wrap")) setProfileOpen(false)
+      if (!inside(".order-type-wrap")) setOrderTypeOpen(false)
+    }
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return
+      setNotificationsOpen(false)
+      setProfileOpen(false)
+      setOrderTypeOpen(false)
+      setDiscountOpen(false)
+    }
+    document.addEventListener("pointerdown", closeOutside)
+    document.addEventListener("keydown", closeOnEscape)
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside)
+      document.removeEventListener("keydown", closeOnEscape)
+    }
+  }, [])
 
   if (!ready) return null
   if (!account) return <AuthView onAuthenticated={handleAuthenticated} />
@@ -654,6 +747,98 @@ export default function App() {
       else next[id] = nextQuantity
       return next
     })
+  }
+
+  function toggleShift() {
+    if (!account || account.role !== "cashier") return
+    if (shiftActive) {
+      endShift(account.id)
+      setMessage("Shift berhasil dinonaktifkan")
+    } else {
+      startShift(account.id)
+      setMessage("Shift berhasil diaktifkan")
+    }
+  }
+
+  function showShiftStatus() {
+    setProfileOpen(false)
+    if (!account || account.role === "manager") {
+      setMessage("Manajer tidak memiliki shift. Lihat kinerja kasir di menu Tim")
+      return
+    }
+    const stats = currentShiftStats(account.id)
+    setMessage(
+      stats
+        ? `Shift sejak ${formatTime(stats.shift.startedAt)} · ${stats.orders} pesanan · ${rupiah.format(stats.sales)}`
+        : "Shift sedang nonaktif",
+    )
+  }
+
+  function handlePay() {
+    if (!account || paying || !itemCount) return
+    if (account.role === "cashier") {
+      const result = recordTransaction({
+        cashierId: account.id,
+        items: itemCount,
+        subtotal,
+        discount: discountAmount,
+        tax,
+        orderType,
+      })
+      if (!result.ok) {
+        playSound("error")
+        setMessage(result.error)
+        return
+      }
+      setMessage(`Pembayaran #${result.value.number} berhasil`)
+    }
+    playChing()
+    setPaid(true)
+    setPaying(true)
+    // keep the success state visible for a moment, then start a fresh order
+    window.setTimeout(() => {
+      setCart({})
+      setDiscount(null)
+      setPaid(false)
+      setPaying(false)
+      setCartOpen(false)
+    }, 1500)
+  }
+
+  function toggleSound() {
+    const next = !soundMuted
+    setMuted(next)
+    setSoundMuted(next)
+    if (!next) playSound("success")
+    setMessage(next ? "Suara dimatikan" : "Suara dihidupkan")
+  }
+
+  function markSeen() {
+    const now = Date.now()
+    setLastSeen(now)
+    try {
+      localStorage.setItem(seenKey, String(now))
+    } catch {
+      /* storage blocked: unread state lasts until reload */
+    }
+  }
+
+  function applyDiscount(type: Discount["type"], raw: number) {
+    if (!Number.isFinite(raw) || raw <= 0) {
+      setMessage("Masukkan nilai diskon yang valid")
+      return
+    }
+    if (type === "percent" && raw > 100) {
+      setMessage("Diskon maksimal 100%")
+      return
+    }
+    const value = type === "amount" ? Math.round(raw) : Math.round(raw * 10) / 10
+    setDiscount({ type, value })
+    setDiscountOpen(false)
+    setDiscountValue("")
+    setMessage(
+      `Diskon ${type === "percent" ? `${value}%` : rupiah.format(value)} diterapkan`,
+    )
   }
 
   function deleteProduct(id: number) {
@@ -673,7 +858,7 @@ export default function App() {
             <span className="eyebrow">Pesanan aktif</span>
             <div className="order-title-row">
               <h2>Meja 04</h2>
-              <span className="order-number">#2048</span>
+              <span className="order-number">#{orderNumber}</span>
             </div>
           </div>
           <button
@@ -807,34 +992,123 @@ export default function App() {
         </div>
 
         <div className="checkout">
-          <button className="discount-button">
-            <span>Tambah diskon</span>
-            <Icon name="chevron" size={17} />
+          <button
+            aria-expanded={discountOpen}
+            className={`discount-button ${discount ? "has-discount" : ""}`}
+            disabled={!itemCount}
+            onClick={() => setDiscountOpen((current) => !current)}
+          >
+            <span>{discount ? `Diskon ${discountLabel}` : "Tambah diskon"}</span>
+            {discount ? (
+              <strong>-{rupiah.format(discountAmount)}</strong>
+            ) : (
+              <Icon name="percent" size={17} />
+            )}
           </button>
+          {discountOpen && (
+            <div className="discount-panel">
+              <div className="discount-presets">
+                {[5, 10, 15, 20].map((percent) => (
+                  <button
+                    className={
+                      discount?.type === "percent" && discount.value === percent
+                        ? "active"
+                        : ""
+                    }
+                    key={percent}
+                    onClick={() => applyDiscount("percent", percent)}
+                    type="button"
+                  >
+                    {percent}%
+                  </button>
+                ))}
+              </div>
+              <form
+                className="discount-custom"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  applyDiscount(discountType, Number(discountValue))
+                }}
+              >
+                <select
+                  aria-label="Jenis diskon"
+                  name="discount-type"
+                  onChange={(event) =>
+                    setDiscountType(event.target.value as Discount["type"])
+                  }
+                  value={discountType}
+                >
+                  <option value="percent">%</option>
+                  <option value="amount">Rp</option>
+                </select>
+                <input
+                  aria-label="Nilai diskon"
+                  inputMode="decimal"
+                  min="0"
+                  name="discount-value"
+                  onChange={(event) => setDiscountValue(event.target.value)}
+                  placeholder={
+                    discountType === "percent" ? "Contoh: 12" : "Contoh: 10000"
+                  }
+                  type="number"
+                  value={discountValue}
+                />
+                <button type="submit">Terapkan</button>
+              </form>
+              {discount && (
+                <button
+                  className="discount-remove"
+                  onClick={() => {
+                    setDiscount(null)
+                    setDiscountOpen(false)
+                    setMessage("Diskon dihapus")
+                  }}
+                  type="button"
+                >
+                  Hapus diskon
+                </button>
+              )}
+            </div>
+          )}
           <div className="totals">
             <div>
               <span>Subtotal</span>
               <strong>{rupiah.format(subtotal)}</strong>
             </div>
+            {discountAmount > 0 && (
+              <div className="discount-row">
+                <span>Diskon</span>
+                <strong>-{rupiah.format(discountAmount)}</strong>
+              </div>
+            )}
             <div>
               <span>Pajak</span>
               <strong>{rupiah.format(tax)}</strong>
             </div>
             <div className="total">
               <span>Total</span>
-              <strong>{rupiah.format(subtotal + tax)}</strong>
+              <strong>{rupiah.format(total)}</strong>
             </div>
           </div>
+          {!shiftActive && (
+            <div className="shift-warning" role="status">
+              <span>Shift nonaktif. Aktifkan shift untuk menerima pembayaran.</span>
+              <button onClick={toggleShift} type="button">
+                Aktifkan shift
+              </button>
+            </div>
+          )}
           <button
             className={`pay-button ${paid ? "pay-button-success" : ""}`}
-            disabled={!itemCount}
-            onClick={() => setPaid(true)}
+            data-sound="none"
+            disabled={!itemCount || !shiftActive || paying}
+            onClick={handlePay}
           >
             <span className="pay-icon">
-              <Icon name={paid ? "bag" : "card"} size={20} />
+              <Icon name={paid ? "check" : "card"} size={20} />
             </span>
-            <span>{paid ? "Pesanan terkirim" : "Bayar"}</span>
-            <strong>{rupiah.format(subtotal + tax)}</strong>
+            <span>{paid ? "Pembayaran berhasil" : "Bayar"}</span>
+            <strong>{rupiah.format(total)}</strong>
           </button>
         </div>
       </aside>
@@ -904,15 +1178,14 @@ export default function App() {
                 Pengaturan akun
               </button>
               <button
-                onClick={() => {
-                  setMessage(
-                    shiftActive ? "Shift Anda masih aktif" : "Shift sedang nonaktif",
-                  )
-                  setProfileOpen(false)
-                }}
+                onClick={showShiftStatus}
               >
                 <Icon name="orders" size={17} />
                 Status shift
+              </button>
+              <button onClick={toggleSound} data-sound="none">
+                <Icon name={soundMuted ? "mute" : "volume"} size={17} />
+                {soundMuted ? "Suara: mati" : "Suara: hidup"}
               </button>
               <button
                 className="logout-button"
@@ -958,58 +1231,69 @@ export default function App() {
             </h1>
           </div>
           <div className="top-actions">
-            <label className="search">
-              <Icon name="search" size={19} />
-              <input
-                aria-label="Cari menu"
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={view === "kasir" ? "Cari menu..." : "Cari..."}
-                ref={searchInputRef}
-                value={query}
-              />
-              <kbd title="Tekan Command atau Control + K untuk mencari">
-                ⌘ K
-              </kbd>
-            </label>
+            {SEARCH_PLACEHOLDER[view] && (
+              <label className="search">
+                <Icon name="search" size={19} />
+                <input
+                  aria-label={SEARCH_PLACEHOLDER[view]?.replace("...", "")}
+                  name="search"
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder={SEARCH_PLACEHOLDER[view]}
+                  ref={searchInputRef}
+                  value={query}
+                />
+                <kbd title="Tekan Command atau Control + K untuk mencari">
+                  ⌘ K
+                </kbd>
+              </label>
+            )}
             <div className="notification-wrap">
               <button
                 aria-expanded={notificationsOpen}
-                aria-label={`Notifikasi, ${unreadNotifications} belum dibaca`}
+                aria-label={`Notifikasi, ${unread} belum dibaca`}
                 className="icon-button notification"
                 onClick={() => setNotificationsOpen((current) => !current)}
               >
                 <Icon name="bell" />
-                {unreadNotifications > 0 && <span></span>}
+                {unread > 0 && <span></span>}
               </button>
               {notificationsOpen && (
                 <div className="notification-menu">
                   <div className="popover-heading">
                     <div>
                       <strong>Notifikasi</strong>
-                      <small>{unreadNotifications} belum dibaca</small>
+                      <small>{unread} belum dibaca</small>
                     </div>
-                    <button onClick={() => setUnreadNotifications(0)}>
+                    <button disabled={!unread} onClick={markSeen}>
                       Tandai dibaca
                     </button>
                   </div>
-                  <button className={unreadNotifications ? "unread" : ""}>
-                    <span className="notification-symbol">
-                      <Icon name="orders" size={17} />
-                    </span>
-                    <span>
-                      <strong>Pesanan #2047 siap</strong>
-                      <small>Siap diserahkan ke pelanggan · 2 menit lalu</small>
-                    </span>
-                  </button>
-                  <button className={unreadNotifications ? "unread" : ""}>
-                    <span className="notification-symbol">
-                      <Icon name="bag" size={17} />
-                    </span>
-                    <span>
-                      <strong>Stok hampir habis</strong>
-                      <small>Orbit Margherita tersisa 4 porsi · 8 menit lalu</small>
-                    </span>
-                  </button>
+                  {notices.length === 0 && (
+                    <p className="notification-empty">
+                      Belum ada aktivitas dalam 24 jam terakhir.
+                    </p>
+                  )}
+                  {notices.map((notice) => (
+                    <button
+                      className={notice.at > lastSeen ? "unread" : ""}
+                      key={notice.id}
+                      onClick={() => {
+                        markSeen()
+                        setNotificationsOpen(false)
+                        setView(notice.view)
+                      }}
+                    >
+                      <span className="notification-symbol">
+                        <Icon name={notice.icon} size={17} />
+                      </span>
+                      <span>
+                        <strong>{notice.title}</strong>
+                        <small>
+                          {notice.detail} · {formatRelative(notice.at)}
+                        </small>
+                      </span>
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
@@ -1041,17 +1325,14 @@ export default function App() {
                     Pengaturan akun
                   </button>
                   <button
-                    onClick={() => {
-                      setMessage(
-                        shiftActive
-                          ? "Shift Anda masih aktif"
-                          : "Shift sedang nonaktif",
-                      )
-                      setProfileOpen(false)
-                    }}
+                    onClick={showShiftStatus}
                   >
                     <Icon name="orders" size={17} />
                     Status shift
+                  </button>
+                  <button onClick={toggleSound} data-sound="none">
+                    <Icon name={soundMuted ? "mute" : "volume"} size={17} />
+                    {soundMuted ? "Suara: mati" : "Suara: hidup"}
                   </button>
                   <button
                     className="logout-button"
@@ -1144,7 +1425,21 @@ export default function App() {
             )}
           </section>
         ) : view === "tim" ? (
-          <TeamView manager={account} onMessage={setMessage} />
+          <TeamView manager={account} onMessage={setMessage} query={query} />
+        ) : view === "pesanan" ? (
+          <OrdersView
+            isManager={role === "manager"}
+            names={names}
+            onNewOrder={role === "cashier" ? () => setView("kasir") : undefined}
+            query={query}
+            transactions={transactions}
+          />
+        ) : view === "laporan" ? (
+          <ReportView
+            names={names}
+            onMessage={setMessage}
+            transactions={transactions}
+          />
         ) : view === "akun" ? (
           <AccountSettingsView
             employeeName={employeeName}
@@ -1154,14 +1449,7 @@ export default function App() {
               if (result.ok) setAccount(result.value)
               else setMessage(result.error)
             }}
-            onToggleShift={() => {
-              setShiftActive((current) => !current)
-              setMessage(
-                shiftActive
-                  ? "Shift berhasil dinonaktifkan"
-                  : "Shift berhasil diaktifkan",
-              )
-            }}
+            onToggleShift={toggleShift}
             shiftActive={shiftActive}
             shiftName={shiftName}
           />
@@ -1170,7 +1458,6 @@ export default function App() {
             onAddProduct={(product) =>
               setProducts((current) => [product, ...current])
             }
-            onBack={() => setView(VIEWS_BY_ROLE[role][0])}
             onDeleteProduct={deleteProduct}
             onToggleProduct={(id) =>
               setProducts((current) =>
@@ -1182,12 +1469,12 @@ export default function App() {
               )
             }
             products={products}
-            view={view}
+            query={query}
           />
         )}
       </main>
 
-      {view === "kasir" && <OrderPanel />}
+      {view === "kasir" && OrderPanel()}
 
       {view === "kasir" && cartOpen && (
         <button
@@ -1200,7 +1487,7 @@ export default function App() {
         <button className="mobile-cart" onClick={() => setCartOpen(true)}>
           <span className="cart-count">{itemCount}</span>
           <span>Lihat pesanan</span>
-          <strong>{rupiah.format(subtotal + tax)}</strong>
+          <strong>{rupiah.format(total)}</strong>
         </button>
       )}
       {message && (
