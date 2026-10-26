@@ -1,0 +1,162 @@
+/* ==========================================================
+   NEXT POS: styles for accounts, registration and the manager
+   team view. Uses the same navy / mint palette and radii as
+   index.css, so it needs no changes there.
+   ========================================================== */
+
+/* ---------- Login / register ---------- */
+.login-notice { margin: -7px 0 14px; padding: 10px 12px; border: 1px solid #cdeedd; border-radius: 10px; background: #f0fff7; color: #16875e; font-size: 10px; font-weight: 600; }
+.auth-switch { margin: 16px 0 0; color: #7e899a; font-size: 11px; text-align: center; }
+.auth-switch button { padding: 2px 3px; border: 0; background: transparent; color: #16875e; font-size: 11px; font-weight: 800; }
+.auth-switch button:hover { text-decoration: underline; }
+.demo-account-list { margin-top: 9px; display: grid; gap: 7px; }
+.demo-account-list button { padding: 9px 11px; display: grid; gap: 2px; border: 1px solid #e3e8e6; border-radius: 10px; background: #fff; text-align: left; transition: border-color .2s ease, background .2s ease, transform .2s ease; }
+.demo-account-list button:hover { border-color: #16875e; background: #f4fff9; transform: translateY(-1px); }
+.demo-account-list strong { color: #26354d; font-size: 10px; }
+.demo-account-list small { color: #8993a2; font-size: 9px; }
+
+/* ---------- Sidebar: spacer keeps the profile at the bottom for every role ---------- */
+.nav-spacer { flex: 1; }
+.side-nav .nav-settings { margin-top: 0; }
+
+/* ---------- Team view ---------- */
+.team-view .metric-grid { margin-top: 0; }
+.team-toolbar { margin: 0 0 18px; display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.team-toolbar-note { color: #8a94a2; font-size: 11px; }
+.range-switch { padding: 4px; display: inline-flex; gap: 3px; border: 1px solid #dfe3e7; border-radius: 13px; background: #fff; }
+.range-switch button { height: 34px; padding: 0 15px; border: 0; border-radius: 10px; background: transparent; color: #687487; font-size: 12px; font-weight: 700; transition: background .2s ease, color .2s ease; }
+.range-switch button:hover { color: #14223a; }
+.range-switch button.active { background: #101c32; color: #fff; }
+
+.team-list { margin-top: 18px; display: grid; gap: 12px; }
+.team-card { overflow: hidden; border: 1px solid #e0e4e8; border-radius: 18px; background: #fff; box-shadow: 0 5px 18px rgba(28,39,54,.035); transition: box-shadow .2s ease, border-color .2s ease; }
+.team-card:hover { border-color: #cfd6dc; }
+.team-card.open { border-color: #bfe9d6; box-shadow: 0 14px 32px rgba(28,39,54,.08); }
+.team-card.inactive { background: #fafafa; }
+.team-card.inactive .team-stats, .team-card.inactive .perf-bar { opacity: .55; }
+.team-card-head { width: 100%; padding: 16px 20px 12px; display: grid; grid-template-columns: 24px 44px minmax(0, 1fr) auto 20px; align-items: center; gap: 13px; border: 0; background: transparent; color: #27354a; text-align: left; }
+.team-rank { color: #9aa3af; font: 700 13px "Space Grotesk", sans-serif; text-align: center; }
+.team-card:first-child .team-rank { color: #16875e; }
+.team-avatar { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 13px; background: #101c32; color: #56ffba; font-size: 12px; font-weight: 800; }
+.team-who { min-width: 0; display: grid; gap: 3px; }
+.team-who strong { color: #17253c; font-size: 14px; }
+.team-who small { overflow: hidden; color: #8a94a2; font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }
+.team-chevron { display: grid; place-items: center; color: #9aa3af; transition: transform .25s ease; }
+.team-card.open .team-chevron { transform: rotate(90deg); }
+
+.chip { padding: 6px 10px; display: inline-flex; align-items: center; gap: 7px; border-radius: 999px; background: #f0f2f4; color: #768191; font-size: 10px; font-weight: 800; white-space: nowrap; }
+.chip i { width: 7px; height: 7px; border-radius: 50%; background: #a8b0bb; }
+.chip-live { background: #e5fff3; color: #16875e; }
+.chip-live i { background: #27d889; box-shadow: 0 0 0 4px rgba(39,216,137,.14); }
+.chip-off { background: #fff1f0; color: #ca4e47; }
+.chip-off i { background: #ef8a84; }
+
+.team-stats { padding: 4px 20px 14px 101px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
+.team-stats > div { display: grid; gap: 4px; }
+.team-stats small { color: #8a94a2; font-size: 10px; font-weight: 600; }
+.team-stats strong { color: #101c32; font: 700 15px "Space Grotesk", sans-serif; letter-spacing: -.02em; }
+.perf-bar { height: 5px; margin: 0 20px 16px 101px; overflow: hidden; border-radius: 999px; background: #eef1f3; }
+.perf-bar i { height: 100%; display: block; border-radius: inherit; background: linear-gradient(90deg, #16875e, #56ffba); transition: width .6s cubic-bezier(.2,.8,.2,1); }
+
+.team-detail { padding: 16px 20px 20px; border-top: 1px solid #edf0f2; background: #fbfcfc; }
+.shift-table { overflow-x: auto; }
+.shift-table-head, .shift-table-row { min-width: 560px; padding: 10px 12px; display: grid; grid-template-columns: 1.1fr 1.2fr .8fr .7fr 1.2fr .7fr; gap: 10px; align-items: center; font-size: 11px; }
+.shift-table-head { color: #8a94a2; font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.shift-table-row { border-top: 1px solid #edf0f2; color: #3f4d62; font-weight: 600; }
+.shift-table-row:hover { background: #f6faf8; }
+.shift-table-empty { margin: 8px 12px; color: #9aa3af; font-size: 11px; }
+.team-actions { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 9px; }
+.team-actions .toggle-button { padding: 0 14px; }
+.toggle-button.danger { border-color: #ffd5d2; background: #fff5f4; color: #ca4e47; }
+.toggle-button.danger:hover { background: #ffe8e6; border-color: #f5b9b4; color: #b8423b; }
+.reset-form { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px; }
+.reset-form input { min-width: 220px; flex: 1; height: 38px; padding: 0 12px; border: 1px solid #dce1e6; border-radius: 10px; outline: 0; background: #fff; color: #14223a; font-size: 12px; }
+.reset-form input:focus { border-color: #16875e; box-shadow: 0 0 0 3px rgba(22,135,94,.1); }
+.reset-form button { height: 38px; padding: 0 13px; border: 1px solid #dce1e6; border-radius: 10px; background: #fff; color: #536075; font-size: 11px; font-weight: 700; }
+.reset-form button:hover { border-color: #9ba7b4; color: #14223a; }
+.reset-form .reset-save { border: 0; background: #56ffba; color: #101c32; font-weight: 800; }
+
+/* ---------- Register cashier ---------- */
+.cashier-form { margin-bottom: 20px; padding: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; border: 1px solid #dfe4e8; border-radius: 18px; background: #fff; box-shadow: 0 14px 35px rgba(28,39,54,.05); }
+.cashier-form-heading { grid-column: 1 / -1; padding-bottom: 14px; display: flex; align-items: center; gap: 13px; border-bottom: 1px solid #edf0f2; }
+.cashier-form-heading h3 { margin: 0; color: #17253c; font: 700 15px "Space Grotesk", sans-serif; }
+.cashier-form-heading p { margin: 4px 0 0; color: #8993a2; font-size: 10px; }
+.cashier-form label { display: grid; align-content: start; gap: 6px; color: #596678; font-size: 10px; font-weight: 700; }
+.cashier-form input { width: 100%; height: 42px; padding: 0 12px; border: 1px solid #dce1e6; border-radius: 10px; outline: 0; background: #fff; color: #14223a; font: 500 12px "DM Sans", sans-serif; }
+.cashier-form input:focus { border-color: #16875e; box-shadow: 0 0 0 3px rgba(22,135,94,.1); }
+.cashier-form .form-wide, .cashier-form .save-product { grid-column: 1 / -1; }
+.cashier-form .login-error { margin: 0; }
+.cashier-form .save-product:disabled { opacity: .6; cursor: wait; }
+.input-with-action { display: flex; gap: 8px; }
+.input-with-action input { min-width: 0; flex: 1; }
+.input-with-action button { height: 42px; padding: 0 13px; flex: none; border: 1px solid #dce1e6; border-radius: 10px; background: #fff; color: #16875e; font-size: 11px; font-weight: 800; }
+.input-with-action button:hover { border-color: #16875e; background: #f4fff9; }
+
+.credentials-card { margin-bottom: 20px; padding: 18px 20px; display: flex; align-items: flex-start; gap: 15px; border: 1px solid #bfe9d6; border-radius: 18px; background: #f2fff8; }
+.credentials-icon { width: 40px; height: 40px; display: grid; place-items: center; flex: none; border-radius: 12px; background: #56ffba; color: #101c32; }
+.credentials-card > div:nth-child(2) { min-width: 0; flex: 1; }
+.credentials-card strong { color: #17253c; font: 700 15px "Space Grotesk", sans-serif; }
+.credentials-card p { margin: 4px 0 10px; color: #5f7a6d; font-size: 11px; line-height: 1.5; }
+.credentials-card dl { margin: 0; display: flex; flex-wrap: wrap; gap: 8px 22px; }
+.credentials-card dl > div { display: grid; gap: 2px; }
+.credentials-card dt { color: #7a9487; font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.credentials-card dd { margin: 0; color: #101c32; font: 600 13px "Space Grotesk", sans-serif; word-break: break-all; }
+.credentials-actions { display: flex; flex-direction: column; gap: 8px; }
+
+/* ---------- Orders list (real transactions) ---------- */
+.order-entry { border-bottom: 1px solid #edf0f2; }
+.order-entry:last-child { border-bottom: 0; }
+.order-entry .order-row { border-bottom: 0; }
+.order-chevron { display: grid; place-items: center; color: #9aa3af; transition: transform .25s ease; }
+.order-entry.open .order-chevron { transform: rotate(90deg); }
+.order-entry.open .order-row { background: #f8faf9; }
+.order-detail { margin: 0; padding: 14px 20px 18px 78px; display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px 18px; border-top: 1px dashed #e3e8e6; background: #fbfcfc; }
+.order-detail > div { display: grid; gap: 3px; }
+.order-detail dt { color: #8a94a2; font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.order-detail dd { margin: 0; color: #26354d; font: 600 13px "Space Grotesk", sans-serif; }
+.order-detail .order-detail-total dd { color: #16875e; font-size: 15px; }
+
+/* ---------- Report ---------- */
+.metric-grid small.down { color: #ca4e47; }
+.workspace-secondary svg { flex: none; }
+.bar-labels { margin-top: 8px; display: flex; justify-content: space-around; gap: 14px; color: #8a94a2; font-size: 10px; font-weight: 700; }
+.bar-labels span { width: min(34px, 6%); min-height: 12px; text-align: center; }
+
+/* ---------- Pay panel: shift is off ---------- */
+.shift-warning { margin-bottom: 12px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid #ffe2b8; border-radius: 12px; background: #fff8ec; color: #a66c00; font-size: 10px; font-weight: 600; line-height: 1.4; }
+.shift-warning button { height: 30px; padding: 0 11px; flex: none; border: 0; border-radius: 9px; background: #101c32; color: #fff; font-size: 10px; font-weight: 800; }
+.shift-warning button:hover { background: #1b2c4a; }
+
+/* ---------- Small screens ---------- */
+@media (max-width: 860px) {
+  .team-card-head { grid-template-columns: 40px minmax(0, 1fr) 20px; padding: 14px 16px 10px; }
+  .team-rank { display: none; }
+  .team-card-head .chip { grid-column: 2; grid-row: 2; width: fit-content; }
+  .team-card-head .team-chevron { grid-column: 3; grid-row: 1; }
+  .team-stats { padding: 4px 16px 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .perf-bar { margin: 0 16px 14px; }
+  .cashier-form { grid-template-columns: 1fr; }
+  .credentials-card { flex-direction: column; }
+  .credentials-actions { flex-direction: row; }
+  .team-detail { padding: 14px 12px 16px; }
+}
+
+/* ---- discount panel ---- */
+.discount-button:disabled { opacity: .5; cursor: not-allowed; }
+.discount-button.has-discount { color: #16875e; }
+.discount-button.has-discount strong { color: #16875e; font-weight: 700; }
+.discount-panel { margin: -2px 0 12px; padding: 12px; display: grid; gap: 10px; border: 1px solid #dce1e6; border-radius: 14px; background: #f7faf9; }
+.discount-presets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+.discount-presets button { height: 34px; border: 1px solid #dce1e6; border-radius: 10px; background: #fff; color: #26354d; font-size: 11px; font-weight: 700; transition: background .15s, border-color .15s, color .15s; }
+.discount-presets button:hover { border-color: #56ffba; background: #f2fff8; }
+.discount-presets button.active { border-color: #56ffba; background: #56ffba; color: #101c32; }
+.discount-custom { display: grid; grid-template-columns: 58px 1fr auto; gap: 7px; }
+.discount-custom select, .discount-custom input { height: 34px; min-width: 0; padding: 0 10px; border: 1px solid #dce1e6; border-radius: 10px; background: #fff; color: #26354d; font-size: 11px; }
+.discount-custom input:focus, .discount-custom select:focus { outline: 2px solid #56ffba; outline-offset: 0; }
+.discount-custom button { padding: 0 14px; border: 0; border-radius: 10px; background: #101c32; color: #56ffba; font-size: 11px; font-weight: 700; }
+.discount-remove { justify-self: start; padding: 0; border: 0; background: transparent; color: #d4574b; font-size: 11px; font-weight: 700; }
+.totals .discount-row, .totals .discount-row strong { color: #16875e; }
+
+/* ---- notifications ---- */
+.notification-empty { margin: 0; padding: 22px 16px; color: #8993a2; font-size: 11px; text-align: center; }
+.notification-menu > button:disabled { opacity: .5; cursor: default; }
