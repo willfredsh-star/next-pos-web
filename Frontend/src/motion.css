@@ -1,0 +1,55 @@
+/* Motion: short, eased, and calm enough for a cashier tapping all day. */
+:root {
+  --ease-out: cubic-bezier(.22, 1, .36, 1);
+  --ease-spring: cubic-bezier(.34, 1.4, .64, 1);
+}
+
+@keyframes rise-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pop-in { from { opacity: 0; transform: translateY(-6px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes item-in { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes mint-pulse { 0% { box-shadow: 0 0 0 0 rgba(86,255,186,.55); } 100% { box-shadow: 0 0 0 18px rgba(86,255,186,0); } }
+@keyframes check-pop { 0% { transform: scale(.4); } 60% { transform: scale(1.18); } 100% { transform: scale(1); } }
+@keyframes bar-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes badge-bump { 0% { transform: scale(1); } 40% { transform: scale(1.25); } 100% { transform: scale(1); } }
+
+/* screens */
+.workspace-view, .login-card, .auth-card { animation: rise-in .35s var(--ease-out) both; }
+.product-grid > * { animation: rise-in .38s var(--ease-out) both; }
+.product-grid > *:nth-child(2) { animation-delay: .03s; }
+.product-grid > *:nth-child(3) { animation-delay: .06s; }
+.product-grid > *:nth-child(4) { animation-delay: .09s; }
+.product-grid > *:nth-child(5) { animation-delay: .12s; }
+.product-grid > *:nth-child(6) { animation-delay: .15s; }
+.product-grid > *:nth-child(n+7) { animation-delay: .18s; }
+.team-card, .order-entry, .manage-list article { animation: rise-in .3s var(--ease-out) both; }
+.order-detail { animation: fade-in .25s var(--ease-out) both; }
+.bar-chart i { transform-origin: bottom; animation: bar-grow .6s var(--ease-out) both; }
+
+/* menus and popovers */
+.notification-menu, .profile-menu, .order-type-menu, .discount-panel, .credentials-card { transform-origin: top right; animation: pop-in .18s var(--ease-out) both; }
+.toast { animation: toast-in .22s var(--ease-out) both; }
+.cart-item { animation: item-in .26s var(--ease-out) both; }
+
+/* press feedback: every button gets a quick, subtle squish */
+button { transition: transform .14s var(--ease-out), background-color .2s ease, border-color .2s ease, color .2s ease, box-shadow .2s ease, opacity .2s ease; }
+button:not(:disabled):active { transform: scale(.95); }
+.product-card:hover { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(28,39,54,.09); }
+.product-card:hover .product-image img { transform: scale(1.05); }
+.product-image > button:not(:disabled):hover { transform: scale(1.1) rotate(4deg); }
+.nav-button:not(:disabled):hover { transform: translateY(-1px); }
+.category:not(:disabled):hover { transform: translateY(-1px); }
+.stepper button:not(:disabled):active { transform: scale(.88); }
+
+/* payment */
+.pay-button:not(:disabled):hover { transform: translateY(-2px); box-shadow: 0 16px 30px rgba(16,28,50,.24); }
+.pay-button:not(:disabled):active { transform: scale(.98); }
+.pay-button-success { animation: mint-pulse .9s ease-out; }
+.pay-button-success svg { animation: check-pop .45s var(--ease-spring) both; }
+.notification span, .avatar span { animation: badge-bump .5s var(--ease-spring) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0ms !important; transition-duration: .01ms !important; }
+  .product-card:hover, .product-card:hover .product-image img { transform: none; }
+}
