@@ -43,6 +43,8 @@ export type Transaction = {
   at: number
   items: number
   subtotal: number
+  /** Discount applied before tax. Missing on orders recorded before discounts existed. */
+  discount?: number
   tax: number
   total: number
   orderType: string
@@ -425,6 +427,12 @@ export function listCashiers(): Account[] {
 
 /* ---------- shifts & transactions ---------- */
 
+export function listShifts(since = 0): Shift[] {
+  return readShifts()
+    .filter((shift) => (shift.endedAt ?? Date.now()) >= since)
+    .sort((a, b) => b.startedAt - a.startedAt)
+}
+
 export function activeShift(cashierId: string): Shift | null {
   return (
     readShifts().find(
@@ -433,9 +441,13 @@ export function activeShift(cashierId: string): Shift | null {
   )
 }
 
+/** A shift left open (tab closed without signing out) is closed after this long. */
+const STALE_SHIFT_MS = 14 * HOUR
+
 export function startShift(cashierId: string): Shift {
   const existing = activeShift(cashierId)
-  if (existing) return existing
+  if (existing && Date.now() - existing.startedAt < STALE_SHIFT_MS) return existing
+  if (existing) endShift(cashierId, existing.startedAt + STALE_SHIFT_MS)
   const shift: Shift = {
     id: uid(),
     cashierId,
@@ -446,13 +458,16 @@ export function startShift(cashierId: string): Shift {
   return shift
 }
 
-export function endShift(cashierId: string): Shift | null {
+export function endShift(
+  cashierId: string,
+  endedAt: number = Date.now(),
+): Shift | null {
   const shifts = readShifts()
   const open = shifts.find(
     (shift) => shift.cashierId === cashierId && shift.endedAt === null,
   )
   if (!open) return null
-  const closed: Shift = { ...open, endedAt: Date.now() }
+  const closed: Shift = { ...open, endedAt }
   save(
     KEYS.shifts,
     shifts.map((shift) => (shift.id === open.id ? closed : shift)),
@@ -469,6 +484,7 @@ export function recordTransaction(input: {
   cashierId: string
   items: number
   subtotal: number
+  discount?: number
   tax: number
   orderType: string
 }): Result<Transaction> {
@@ -486,8 +502,12 @@ export function recordTransaction(input: {
     at: Date.now(),
     items: input.items,
     subtotal: Math.round(input.subtotal),
+    discount: Math.round(input.discount ?? 0),
     tax: Math.round(input.tax),
-    total: Math.round(input.subtotal + input.tax),
+    total:
+      Math.round(input.subtotal) -
+      Math.round(input.discount ?? 0) +
+      Math.round(input.tax),
     orderType: input.orderType,
   }
   save(KEYS.transactions, [...readTransactions(), transaction])
@@ -530,6 +550,12 @@ export function shiftStats(
     durationMs,
     ordersPerHour: orders / hours,
   }
+}
+
+/** Live numbers for the cashier's open shift, or null when no shift is open. */
+export function currentShiftStats(cashierId: string): ShiftStats | null {
+  const shift = activeShift(cashierId)
+  return shift ? shiftStats(shift, readTransactions()) : null
 }
 
 /** Per-cashier performance. `since` limits it to shifts that overlap that time. */
