@@ -14,6 +14,7 @@ from .views import (
     CashierPasswordView,
     ShiftView,
     TransactionView,
+    HourlySalesView,
     ProductCollectionView,
 )
 
@@ -31,5 +32,6 @@ urlpatterns = [
     path('cashiers/password/', CashierPasswordView.as_view()),
     path('shifts/', ShiftView.as_view()),
     path('transactions/', TransactionView.as_view()),
+    path('reports/hourly-sales/', HourlySalesView.as_view()),
     path('products/', ProductCollectionView.as_view()),
 ]

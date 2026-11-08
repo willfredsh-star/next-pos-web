@@ -1,4 +1,6 @@
 import time
+from datetime import date, datetime, time as datetime_time, timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from django.conf import settings
@@ -8,7 +10,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import connection, transaction as db_transaction
-from django.db.models import Max
+from django.db.models import Max, Q
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -346,6 +348,57 @@ class TransactionView(APIView):
             tx = Transaction.objects.create(number=number, manager=manager, cashier=employee, shift=shift, at=int(time.time() * 1000), items=items, subtotal=subtotal, discount=discount, tax=tax, total=total, order_type=order_type, guest_count=guest_count)
             TransactionItem.objects.bulk_create([TransactionItem(transaction=tx, product=p, name=p.name, unit_price=p.price, quantity=qty) for p, qty in rows])
         return Response(TransactionSerializer(tx).data, status=201)
+
+
+class HourlySalesView(APIView):
+    """Omzet per jam untuk tanggal dan zona waktu lokal yang diminta manajer."""
+
+    def get(self, request):
+        employee = employee_for(request.user)
+        if not employee or employee.role != 'manager' or not employee.active:
+            return error('Laporan hanya dapat diakses oleh manajer aktif.', 403)
+
+        zone_name = str(request.query_params.get('timezone', 'Asia/Jakarta')).strip()
+        try:
+            zone = ZoneInfo(zone_name)
+        except (ZoneInfoNotFoundError, ValueError):
+            return error('Zona waktu tidak valid.')
+
+        raw_date = request.query_params.get('date')
+        try:
+            report_date = date.fromisoformat(raw_date) if raw_date else datetime.now(zone).date()
+        except (TypeError, ValueError):
+            return error('Tanggal laporan tidak valid.')
+
+        start = datetime.combine(report_date, datetime_time.min, tzinfo=zone)
+        end = start + timedelta(days=1)
+        start_ms = int(start.timestamp() * 1000)
+        end_ms = int(end.timestamp() * 1000)
+
+        transactions = Transaction.objects.filter(
+            Q(manager=employee) | Q(cashier__created_by=employee),
+            at__gte=start_ms,
+            at__lt=end_ms,
+        ).values_list('at', 'total')
+
+        slots = {hour: {'hour': hour, 'sales': 0, 'orders': 0} for hour in range(7, 24)}
+        for timestamp, total in transactions.iterator():
+            hour = datetime.fromtimestamp(timestamp / 1000, tz=zone).hour
+            if hour in slots:
+                slots[hour]['sales'] += total
+                slots[hour]['orders'] += 1
+
+        data = list(slots.values())
+        return Response({
+            'date': report_date.isoformat(),
+            'timezone': zone_name,
+            'startHour': 7,
+            'endHour': 24,
+            'totalSales': sum(slot['sales'] for slot in data),
+            'totalOrders': sum(slot['orders'] for slot in data),
+            'hours': data,
+        })
+
 
 class ProductCollectionView(APIView):
     def get(self, request):

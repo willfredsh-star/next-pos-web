@@ -96,3 +96,21 @@ export function listProducts(){return products}
 export async function addProduct(input:Omit<Product,'id'>):Promise<Result<Product>>{try{const p=await api<Product>('/products/',{method:'POST',body:JSON.stringify(input)});products=[...products,p];saveCache();return{ok:true,value:p}}catch(e){return{ok:false,error:(e as Error).message}}}
 export function toggleProduct(id:number):Result<true>{const p=products.find(x=>x.id===id);if(!p)return{ok:false,error:'Menu tidak ditemukan.'};products=products.map(x=>x.id===id?{...x,active:!x.active}:x);saveCache();void api('/products/',{method:'PATCH',body:JSON.stringify({id,active:!p.active})}).catch(e=>fail('Gagal menyimpan perubahan menu.',e));return{ok:true,value:true}}
 export function deleteProduct(id:number):Result<true>{products=products.filter(x=>x.id!==id);saveCache();void api('/products/',{method:'DELETE',body:JSON.stringify({id})}).catch(e=>fail('Gagal menghapus menu.',e));return{ok:true,value:true}}
+
+
+export type HourlySalesSlot = { hour: number; sales: number; orders: number }
+export type HourlySalesReport = {
+  date: string
+  timezone: string
+  startHour: number
+  endHour: number
+  totalSales: number
+  totalOrders: number
+  hours: HourlySalesSlot[]
+}
+
+/** Laporan per jam dihitung backend dari transaksi persisten, bukan cache browser. */
+export async function getHourlySales(date: string, timezone: string): Promise<HourlySalesReport> {
+  const params = new URLSearchParams({ date, timezone })
+  return api<HourlySalesReport>(`/reports/hourly-sales/?${params.toString()}`)
+}

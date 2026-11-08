@@ -1,7 +1,7 @@
 """Tes API NEXT POS. Jalankan: DJANGO_DEBUG=1 DB_ENGINE=sqlite python manage.py test"""
 import re
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 from unittest import mock
 from urllib.parse import unquote
 
@@ -375,3 +375,45 @@ class ProductTests(ApiTestBase):
         self.assertEqual(self.client_with(other).patch('/api/products/', {'id': pid, 'price': 1}, format='json').status_code, 404)
         self.assertEqual(self.client_with(other).delete('/api/products/', {'id': pid}, format='json').status_code, 404)
         self.assertEqual(self.client_with(manager).patch('/api/products/', {'id': 'bukan-angka'}, format='json').status_code, 404)
+
+
+class HourlySalesReportTests(ApiTestBase):
+    def test_manager_receives_hourly_sales_in_requested_timezone(self):
+        manager_token = self.register_manager()
+        product_id = self.add_product(manager_token, price=50000)
+        _, cashier_token = self.cashier_on_shift(manager_token)
+
+        # 01:30 UTC is 08:30 in Asia/Jakarta; 15:15 UTC is 22:15.
+        first = int(datetime(2026, 11, 8, 1, 30, tzinfo=dt_timezone.utc).timestamp())
+        second = int(datetime(2026, 11, 8, 15, 15, tzinfo=dt_timezone.utc).timestamp())
+        with mock.patch('core.views.time.time', return_value=first):
+            paid_morning = self.pay(cashier_token, [{'productId': product_id, 'qty': 1}])
+        with mock.patch('core.views.time.time', return_value=second):
+            paid_evening = self.pay(cashier_token, [{'productId': product_id, 'qty': 2}])
+        self.assertEqual(paid_morning.status_code, 201, paid_morning.content)
+        self.assertEqual(paid_evening.status_code, 201, paid_evening.content)
+
+        response = self.client_with(manager_token).get(
+            '/api/reports/hourly-sales/?date=2026-11-08&timezone=Asia%2FJakarta'
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.data['totalOrders'], 2)
+        self.assertEqual(response.data['totalSales'], paid_morning.data['total'] + paid_evening.data['total'])
+        self.assertEqual(len(response.data['hours']), 17)
+        self.assertEqual(response.data['hours'][1]['hour'], 8)
+        self.assertEqual(response.data['hours'][1]['orders'], 1)
+        self.assertEqual(response.data['hours'][15]['hour'], 22)
+        self.assertEqual(response.data['hours'][15]['orders'], 1)
+
+    def test_hourly_sales_report_is_manager_only(self):
+        manager_token = self.register_manager()
+        _, cashier_token = self.cashier_on_shift(manager_token)
+        response = self.client_with(cashier_token).get('/api/reports/hourly-sales/')
+        self.assertEqual(response.status_code, 403)
+
+    def test_invalid_report_timezone_is_rejected(self):
+        manager_token = self.register_manager()
+        response = self.client_with(manager_token).get(
+            '/api/reports/hourly-sales/?timezone=Not%2FAZone'
+        )
+        self.assertEqual(response.status_code, 400)
