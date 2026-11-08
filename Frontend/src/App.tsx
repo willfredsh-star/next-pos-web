@@ -385,6 +385,54 @@ function AccountSettingsView({
   )
 }
 
+const MAX_CART_QUANTITY = 99
+
+/* Jumlah pesanan yang bisa diketik langsung. Draf teks disimpan lokal dan baru diterapkan saat Enter atau
+   saat kolom ditinggalkan, jadi mengosongkan kolom untuk mengetik angka baru tidak menghapus menu. */
+function QuantityInput({
+  label,
+  value,
+  onCommit,
+}: {
+  label: string
+  value: number
+  onCommit: (quantity: number) => void
+}) {
+  const [draft, setDraft] = useState<string | null>(null)
+
+  function commit() {
+    if (draft === null) return
+    const typed = Number.parseInt(draft, 10)
+    setDraft(null)
+    // Kosong atau 0 dianggap salah ketik: kembali ke jumlah semula. Untuk menghapus menu ada tombol tempat sampah.
+    if (Number.isNaN(typed) || typed < 1) return
+    const next = Math.min(MAX_CART_QUANTITY, typed)
+    if (next !== value) onCommit(next)
+  }
+
+  return (
+    <input
+      aria-label={label}
+      className="quantity-input"
+      inputMode="numeric"
+      maxLength={2}
+      onBlur={commit}
+      onChange={(event) => setDraft(event.target.value.replace(/\D/g, "").slice(0, 2))}
+      onFocus={(event) => event.target.select()}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") event.currentTarget.blur()
+        if (event.key === "Escape") {
+          setDraft(null)
+          event.currentTarget.blur()
+        }
+      }}
+      pattern="[0-9]*"
+      type="text"
+      value={draft ?? String(value)}
+    />
+  )
+}
+
 export default function App() {
   const [ready, setReady] = useState(false)
   const [account, setAccount] = useState<Account | null>(null)
@@ -669,6 +717,16 @@ export default function App() {
     })
   }
 
+  function setCartQuantity(id: number, quantity: number) {
+    setPaid(false)
+    setCart((current) => {
+      const next = { ...current }
+      if (quantity <= 0) delete next[id]
+      else next[id] = Math.min(MAX_CART_QUANTITY, quantity)
+      return next
+    })
+  }
+
   function toggleShift() {
     if (!account || account.role !== "cashier") return
     if (shiftActive) {
@@ -910,7 +968,11 @@ export default function App() {
                     >
                       <Icon name="minus" size={14} />
                     </button>
-                    <span>{cart[product.id]}</span>
+                    <QuantityInput
+                      label={`Jumlah ${product.name}`}
+                      onCommit={(quantity) => setCartQuantity(product.id, quantity)}
+                      value={cart[product.id]}
+                    />
                     <button
                       aria-label={`Tambah ${product.name}`}
                       onClick={() => updateCart(product.id, 1)}

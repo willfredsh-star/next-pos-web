@@ -32,6 +32,9 @@ elif not DEBUG and (SECRET_KEY.startswith('change-this') or SECRET_KEY.startswit
     raise ImproperlyConfigured('DJANGO_SECRET_KEY terlalu lemah/masih contoh. Gunakan nilai acak minimal 32 karakter.')
 
 ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1' if DEBUG else '')
+# Hostless internal health probes may use private IPs; middleware rewrites only /api/health/ to localhost.
+if 'localhost' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('localhost')
 # Render menyediakan hostname publik layanan lewat RENDER_EXTERNAL_HOSTNAME; otomatis diizinkan.
 _render_host = os.getenv('RENDER_EXTERNAL_HOSTNAME')
 if _render_host and _render_host not in ALLOWED_HOSTS:
@@ -56,6 +59,7 @@ MIDDLEWARE = [
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    'core.middleware.InternalHealthProbeHostMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
